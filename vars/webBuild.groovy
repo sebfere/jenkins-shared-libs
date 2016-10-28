@@ -18,7 +18,9 @@ def call(body) {
             pipelineHelper.echoBuildContext()
 
             wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'XTerm']) {
-                sh 'npm install'
+                retry(2) {
+                    sh 'npm install'
+                }
                 sh 'bower install'
             }
         }
