@@ -1,4 +1,5 @@
 
+import ch.serial.jenkins.PipelineHelper
 
 def call(body) {
     def config = [:]
@@ -6,87 +7,37 @@ def call(body) {
     body.delegate = config
     body()
 
-    String jobName
-    String buildNumber
-    String nodeName
+    pipelineHelper = new PipelineHelper()
 
-    String artifact
-    String version
-
-    String branch
-    String scmConnection
-    boolean scmSVN = false
-    boolean scmGIT = false
-    boolean featureMode = false
-    boolean releaseMode = false
-
-
-    node('web1') {
-        stage('checkout') {
-            echoStage 'checkout'
-
-            git branch: 'master', url: 'https://github.com/tanou73/AngularTodo'
-        }
-
+    node('web') {
         stage('init') {
-            jobName = env.JOB_NAME
-            buildNumber = env.BUILD_NUMBER
-            nodeName = env.NODE_NAME
-            artifact = 'AngularTodo'
-        
-                echo """
-jobName            $jobName
-buildNumber        $buildNumber
-nodeName           $nodeName
+            pipelineHelper.echoStage 'init'
 
-branch             $branch
+            checkout scm
 
-artifact           $artifact
-version            $version
-"""
+            pipelineHelper.echoBuildContext()
 
             wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'XTerm']) {
-                retry(2) {
-                    sh 'npm install'
-                }
+                sh 'npm install'
                 sh 'bower install'
             }
         }
 
         stage('build') {
-            milestone label: 'build'
-            echoStage 'build'
-            
+            pipelineHelper.echoStage 'build'
+
             wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'XTerm']) {
                 sh 'grunt build'
             }
         }
-        
+
         stage('unit-test') {
-            milestone label: 'unit-test'
-            echoStage 'unit-test'
+            pipelineHelper.echoStage 'unit-test'
 
             wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'XTerm']) {
-                // sh 'grunt test'
-                echo 'grunt test'
-                sleep 10
+                sh 'grunt test'
             }
-        }
-        
-        stage('integration-test') {
-            milestone label: 'integration-test'
-            echoStage 'integration-test'
-
-            // sh 'grunt e2e'
-            
-            retry(2) {
-                echo 'Launch test environment'
-            }
-            parallel (
-                'smoke' : { echo 'Smoke tests start'; sleep 10; echo 'Smoke tests finish' },
-                'front_e2e' :  {echo 'Selenium tests start'; sleep 40; echo 'Selenium tests finish' },
-                'back_e2e' : { echo 'Back tests start'; sleep 30; echo 'Back tests finish' }
-            )
         }
     }
+
 }
